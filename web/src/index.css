@@ -1,0 +1,266 @@
+@import "tailwindcss";
+
+/* ── Design tokens ── */
+:root {
+  --c-bg:             #080B12;
+  --c-surface:        #0F1520;
+  --c-surface-raised: #18243A;
+  --c-accent:         #F97316;
+  --c-accent-dim:     rgba(249, 115, 22, 0.12);
+  --c-live:           #EF4444;
+  --c-border:         rgba(255, 255, 255, 0.07);
+  --c-text:           #F1F5F9;
+  --c-muted:          #64748B;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scrollbar-color: #18243A #080B12;
+  scrollbar-width: thin;
+}
+
+body {
+  margin: 0;
+  background-color: var(--c-bg);
+  color: var(--c-text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100dvh;
+}
+
+/* ── Dot grid background ── */
+.bg-grid {
+  background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ── Card with hover glow ── */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.card-interactive:hover {
+  box-shadow: 0 0 0 1px rgba(249,115,22,0.35), 0 8px 32px rgba(249,115,22,0.08);
+  border-color: rgba(249,115,22,0.3);
+  transform: translateY(-2px);
+}
+
+/* ── LIVE pulse dot ── */
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+  50%       { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-live);
+  animation: live-pulse 1.8s ease infinite;
+  flex-shrink: 0;
+}
+
+/* ── Loader spinner ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(249,115,22,0.2);
+  border-top-color: var(--c-accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ── Page entrance ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter { animation: fade-up 0.35s ease; }
+
+/* ── Skeleton shimmer ── */
+@keyframes shimmer {
+  from { background-position: -500px 0; }
+  to   { background-position: 500px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--c-surface) 25%, var(--c-surface-raised) 50%, var(--c-surface) 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.6s ease infinite;
+  border-radius: 8px;
+}
+
+/* ── Inputs ── */
+.input {
+  width: 100%;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  color: var(--c-text);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input::placeholder { color: var(--c-muted); }
+.input:focus { border-color: var(--c-accent); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.18s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-primary { background: var(--c-accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { opacity: 0.88; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--c-muted);
+  border: 1px solid var(--c-border);
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--c-text);
+  border-color: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.04);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--c-live);
+  border: 1px solid rgba(239,68,68,0.25);
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(239,68,68,0.08);
+  border-color: rgba(239,68,68,0.5);
+}
+
+/* ── Monospace code blocks ── */
+.code-block {
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--c-text);
+  word-break: break-all;
+  letter-spacing: 0.03em;
+}
+
+/* ── Toast ── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast { animation: toast-in 0.2s ease; }
+
+/* ── Nav link ── */
+.nav-link {
+  color: var(--c-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: color 0.18s, background 0.18s;
+}
+.nav-link:hover { color: var(--c-text); background: rgba(255,255,255,0.05); }
+.nav-link.active { color: var(--c-text); }
+
+/* ── Scrollbar in chat ── */
+.chat-scroll::-webkit-scrollbar { width: 4px; }
+.chat-scroll::-webkit-scrollbar-track { background: transparent; }
+.chat-scroll::-webkit-scrollbar-thumb { background: var(--c-surface-raised); border-radius: 2px; }
+
+/* ── Responsive: Channel layout ── */
+.channel-layout {
+  height: calc(100dvh - 60px);
+  display: flex;
+  overflow: hidden;
+}
+
+.channel-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.channel-sidebar {
+  width: 300px;
+  border-left: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .channel-layout {
+    height: auto;
+    min-height: calc(100dvh - 60px);
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .channel-main {
+    overflow: visible;
+  }
+
+  .channel-sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--c-border);
+    height: 400px;
+    flex-shrink: 0;
+  }
+}
+
+/* ── Responsive: Navbar ── */
+.navbar-links {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.nav-label-short { display: none; }
+.nav-label-full  { display: inline; }
+
+@media (max-width: 520px) {
+  .navbar-links { display: none; }
+
+  .nav-label-full  { display: none; }
+  .nav-label-short { display: inline; }
+}
+
+/* ── Responsive: Home hero ── */
+@media (max-width: 520px) {
+  .hero-padding { padding: 40px 16px 36px; }
+  .section-padding { padding: 24px 16px; }
+}
+
+/* ── Responsive: Dashboard ── */
+@media (max-width: 520px) {
+  .code-block { font-size: 11px; }
+}
