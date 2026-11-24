@@ -55,3 +55,6 @@ desktop.ini
 skills-lock.json
 web/CLAUDE.md
 web/.agents/
+
+# Local database backups
+/backups/

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 export function ChannelCard({ channel }) {
-  const { slug, title, user, isLive } = channel
+  const { slug, title, user, isLive, logoUrl } = channel
 
   return (
     <Link to={`/canal/${slug}`} style={{ textDecoration: 'none' }}>
@@ -26,11 +26,14 @@ export function ChannelCard({ channel }) {
               backgroundSize: '20px 20px',
             }}
           />
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" opacity="0.2">
+          {logoUrl ? (
+            <img src={logoUrl} alt={`Logo de ${user?.username || slug}`} loading="lazy"
+              style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, objectFit: 'contain', padding: 16, boxSizing: 'border-box' }} />
+          ) : <svg width="40" height="40" viewBox="0 0 40 40" fill="none" opacity="0.2">
             <rect x="4" y="8" width="32" height="22" rx="3" stroke="#F97316" strokeWidth="2" />
             <circle cx="20" cy="19" r="6" stroke="#F97316" strokeWidth="2" />
             <path d="M8 34h24M14 30l2-4M26 30l-2-4" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          </svg>}
 
           {/* Live badge */}
           {isLive && (
@@ -77,16 +80,7 @@ export function ChannelCard({ channel }) {
               whiteSpace: 'nowrap',
             }}
           >
-            {title || `Canal de ${user?.username}`}
-          </p>
-          <p
-            style={{
-              margin: '4px 0 0',
-              fontSize: 12,
-              color: 'var(--c-muted)',
-            }}
-          >
-            {user?.username}
+            {title || user?.username}
           </p>
         </div>
       </article>

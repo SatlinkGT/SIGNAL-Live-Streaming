@@ -1,9 +1,10 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate, useMatch } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function Navbar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const isChannelPage = Boolean(useMatch('/canal/:slug'))
 
   function handleLogout() {
     logout()
@@ -120,7 +121,7 @@ export function Navbar() {
               Salir
             </button>
           </>
-        ) : (
+        ) : !isChannelPage ? (
           <>
             <Link to="/login">
               <button className="btn btn-ghost" style={{ padding: '7px 12px', fontSize: 13 }}>
@@ -135,7 +136,7 @@ export function Navbar() {
               </button>
             </Link>
           </>
-        )}
+        ) : null}
       </div>
     </header>
   )

@@ -1,11 +1,42 @@
 import Hls from 'hls.js'
 import { useEffect, useRef, useState } from 'react'
 
+// MediaMTX can retain a historical target duration after the long segment
+// has left the sliding window. Hls.js uses it to schedule playlist reloads.
+class LivePlaylistLoader extends Hls.DefaultConfig.loader {
+  load(context, config, callbacks) {
+    super.load(context, config, {
+      ...callbacks,
+      onSuccess(response, stats, context, networkDetails) {
+        if (context.type === 'level' && typeof response.data === 'string' &&
+            !response.data.includes('#EXT-X-ENDLIST')) {
+          const durations = Array.from(
+            response.data.matchAll(/^#EXTINF:(\d+(?:\.\d+)?),/gm),
+            (match) => Math.round(Number(match[1])),
+          )
+          const windowTarget = Math.max(1, ...durations)
+          if (durations.length) {
+            response.data = response.data.replace(
+              /^(#EXT-X-TARGETDURATION:)(\d+)(?=\r?$)/m,
+              (line, prefix, target) => Number(target) >= windowTarget * 2
+                ? `${prefix}${windowTarget}`
+                : line,
+            )
+          }
+        }
+        callbacks.onSuccess(response, stats, context, networkDetails)
+      },
+    })
+  }
+}
+
 export function VideoPlayer({ streamKey, isLive }) {
   const videoRef = useRef(null)
-  const hlsRef = useRef(null)
+  const [attempt, setAttempt] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [paused, setPaused] = useState(true)
+  const [muted, setMuted] = useState(false)
 
   const hlsUrl = `/hls/live/${streamKey}/index.m3u8`
 
@@ -15,39 +46,82 @@ export function VideoPlayer({ streamKey, isLive }) {
 
     setError(null)
     setLoading(true)
+    setPaused(video.paused)
+    setMuted(false)
+    video.muted = false
 
+    let hls
+    let active = true
+    let mediaRecovered = false
+    let starting = false
+    const onError = () => {
+      setLoading(false)
+      setError('No se pudo reproducir la transmisión')
+    }
+    const startPlayback = async () => {
+      if (!active || starting || !video.paused) return
+      starting = true
+      try {
+        await video.play()
+      } catch (error) {
+        if (!active || error.name !== 'NotAllowedError') return
+        video.muted = true
+        await video.play().catch(() => {})
+      } finally {
+        starting = false
+      }
+    }
+    const onReady = () => {
+      setLoading(false)
+      startPlayback()
+    }
+
+    video.addEventListener('canplay', onReady, { once: true })
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        maxBufferLength: 30,
+      hls = new Hls({
         lowLatencyMode: false,
+        backBufferLength: 30,
+        pLoader: LivePlaylistLoader,
       })
-      hlsRef.current = hls
+      hls.on(Hls.Events.MANIFEST_PARSED, startPlayback)
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (!data.fatal) return
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !mediaRecovered) {
+          mediaRecovered = true
+          hls.recoverMediaError()
+          return
+        }
+        hls.destroy()
+        hls = null
+        onError()
+      })
       hls.loadSource(hlsUrl)
       hls.attachMedia(video)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setLoading(false)
-        video.play().catch(() => {
-          video.muted = true
-          video.play()
-        })
-      })
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad()
-          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError()
-          else {
-            setError('Error al cargar el stream')
-            hls.destroy()
-          }
-        }
-      })
-      return () => { hls.destroy(); hlsRef.current = null }
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.addEventListener('error', onError)
       video.src = hlsUrl
-      video.play()
-      setLoading(false)
+      startPlayback()
+    } else {
+      onError()
     }
-  }, [hlsUrl, isLive])
+
+    return () => {
+      active = false
+      video.removeEventListener('canplay', onReady)
+      video.removeEventListener('error', onError)
+      hls?.destroy()
+      video.removeAttribute('src')
+      video.load()
+    }
+  }, [hlsUrl, isLive, attempt])
+
+  const activatePlayback = () => {
+    const video = videoRef.current
+    video.muted = false
+    if (video.paused) video.play().catch(() => {})
+  }
+
+  const canActivate = !loading && !error && (muted || paused)
 
   if (!isLive) {
     return (
@@ -129,7 +203,7 @@ export function VideoPlayer({ streamKey, isLive }) {
           <p style={{ color: 'var(--c-live)', fontSize: 14, margin: 0 }}>{error}</p>
           <button
             className="btn btn-ghost"
-            onClick={() => { setError(null); setLoading(true) }}
+            onClick={() => setAttempt((value) => value + 1)}
           >
             Reintentar
           </button>
@@ -140,9 +214,29 @@ export function VideoPlayer({ streamKey, isLive }) {
         ref={videoRef}
         className="w-full h-full"
         style={{ width: '100%', height: '100%', display: 'block' }}
-        controls
+        autoPlay
+        preload="auto"
         playsInline
+        onPlay={() => setPaused(false)}
+        onPause={() => setPaused(true)}
+        onVolumeChange={({ currentTarget }) => setMuted(currentTarget.muted)}
       />
+
+      {canActivate && (
+        <button
+          type="button"
+          aria-label="Reproducir con sonido"
+          onClick={activatePlayback}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 2,
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+          }}
+        />
+      )}
     </div>
   )
 }

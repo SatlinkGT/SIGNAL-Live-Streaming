@@ -1,8 +1,9 @@
 FROM node:24-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
-RUN npx prisma generate
+RUN npx prisma generate && npm run build
+ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["npm", "run", "start:dev"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]

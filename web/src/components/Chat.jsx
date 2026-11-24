@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { io } from 'socket.io-client'
 
+const DAY_MS = 24 * 60 * 60 * 1000
 const COLORS = ['#F97316', '#38BDF8', '#34D399', '#A78BFA', '#FB7185', '#FBBF24']
 
 function colorForUser(username) {
@@ -19,6 +20,35 @@ export function Chat({ channelSlug, username }) {
 
   useEffect(() => {
     let active = true
+    let resetTimer
+
+    function discardPreviousDay() {
+      const midnight = Math.floor(Date.now() / DAY_MS) * DAY_MS
+      setMessages((previous) =>
+        previous.filter((message) => Date.parse(message.timestamp) >= midnight),
+      )
+      return midnight
+    }
+
+    function scheduleReset() {
+      clearTimeout(resetTimer)
+      const midnight = discardPreviousDay()
+      resetTimer = setTimeout(scheduleReset, midnight + DAY_MS - Date.now())
+    }
+
+    function appendMessage(message) {
+      const midnight = discardPreviousDay()
+      if (Date.parse(message.timestamp) >= midnight) {
+        setMessages((previous) =>
+          previous.some((entry) => entry.id === message.id) ? previous : [...previous, message],
+        )
+      }
+    }
+
+    setMessages([])
+    scheduleReset()
+    document.addEventListener('visibilitychange', scheduleReset)
+    window.addEventListener('pageshow', scheduleReset)
 
     const s = io({
       transports: ['websocket', 'polling'],
@@ -29,6 +59,7 @@ export function Chat({ channelSlug, username }) {
 
     s.on('connect', () => {
       if (!active) return
+      scheduleReset()
       setConnected(true)
       s.emit('join_channel', channelSlug)
     })
@@ -36,25 +67,37 @@ export function Chat({ channelSlug, username }) {
       if (!active) return
       setConnected(false)
     })
+    s.on('chat_history', (history) => {
+      if (!active) return
+      const midnight = Math.floor(Date.now() / DAY_MS) * DAY_MS
+      setMessages((previous) => {
+        const byId = new Map()
+        for (const message of [...history, ...previous]) {
+          if (Date.parse(message.timestamp) >= midnight) byId.set(message.id, message)
+        }
+        return [...byId.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+      })
+    })
     s.on('new_message', (msg) => {
       if (!active) return
-      setMessages((p) => [...p, msg])
+      appendMessage(msg)
     })
     s.on('channel_event', (e) => {
       if (!active || e.type !== 'stream_status') return
-      setMessages((p) => [
-        ...p,
-        {
-          id: Date.now().toString(),
-          username: 'Sistema',
-          text: e.isLive ? '🔴 El stream ha comenzado' : '⏹ El stream ha terminado',
-          system: true,
-        },
-      ])
+      appendMessage({
+        id: Date.now().toString(),
+        username: 'Sistema',
+        text: e.isLive ? '🔴 El stream ha comenzado' : '⏹ El stream ha terminado',
+        timestamp: new Date().toISOString(),
+        system: true,
+      })
     })
 
     return () => {
       active = false
+      clearTimeout(resetTimer)
+      document.removeEventListener('visibilitychange', scheduleReset)
+      window.removeEventListener('pageshow', scheduleReset)
       s.disconnect()
     }
   }, [channelSlug])

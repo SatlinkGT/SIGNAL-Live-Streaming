@@ -64,7 +64,7 @@ export function Channel() {
 
         {/* Video */}
         <div style={{ background: '#000', flexShrink: 0 }}>
-          <VideoPlayer streamKey={channel.streamKey} isLive={channel.isLive} />
+          <VideoPlayer streamKey={channel.slug} isLive={channel.isLive} />
         </div>
 
         {/* Channel info */}
@@ -110,7 +110,7 @@ export function Channel() {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {channel.title || `Canal de ${channel.user?.username}`}
+                  {channel.title || channel.user?.username}
                 </h1>
                 {channel.isLive && (
                   <div

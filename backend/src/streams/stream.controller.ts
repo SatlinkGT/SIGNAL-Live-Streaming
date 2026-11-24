@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
 
@@ -16,7 +16,25 @@ export class StreamsController {
       where: { streamKey: key },
     });
     if (!channel) throw new NotFoundException('Stream key inválida');
-    return { channelId: channel.id };
+    return { channelId: channel.id, slug: channel.slug, inputProtocol: channel.inputProtocol };
+  }
+
+  // Internal ingest reconciliation; the public proxy blocks /streams/*.
+  @Post('sync')
+  async sync(@Body() body: { channels: { channelId: string; protocol: string }[] }) {
+    if (!Array.isArray(body?.channels) || body.channels.length > 10000 ||
+        body.channels.some((c) => !c || typeof c.channelId !== 'string' || !['rtmp', 'srt'].includes(c.protocol))) {
+      throw new BadRequestException('Invalid snapshot');
+    }
+    const active = new Set(body.channels.map((c) => c.channelId));
+    const channels = await this.prisma.channel.findMany({ select: { id: true, slug: true, isLive: true } });
+    for (const channel of channels) {
+      const isLive = active.has(channel.id);
+      if (isLive === channel.isLive) continue;
+      await this.prisma.channel.update({ where: { id: channel.id }, data: { isLive } });
+      this.chatGateway.broadcastToChannel(channel.slug, { type: 'stream_status', isLive });
+    }
+    return { ok: true };
   }
 
   // NMS llama este endpoint en postPublish y donePublish

@@ -12,245 +12,47 @@
 
 </div>
 
----
+StreamLive es una plataforma de transmisión en vivo autohospedada. Cada cuenta recibe un canal y una clave personal. Los espectadores pueden reproducir la señal HLS y participar en el chat del canal.
 
-Users register, get a personal stream key, and broadcast live from OBS. Viewers watch in real-time through an HLS video player with live chat — no third-party services, no cloud costs, zero external dependencies.
+## Inicio rápido
 
-## Features
-
-- **Live RTMP ingest** — compatible with OBS, Streamlabs, and any RTMP client
-- **Automatic HLS transcoding** via FFmpeg for universal browser playback
-- **Real-time chat** powered by Socket.IO WebSockets
-- **JWT authentication** — register, login, protected routes
-- **Stream key management** — generate and reset your key from the dashboard
-- **Responsive dark UI** — works on desktop and mobile browsers
-- **One-command setup** — entire stack starts with `docker compose up`
-
-## Architecture
-
-```
-[OBS / Streaming Software]
-         │
-         │  RTMP  (port 1935)
-         ▼
-┌─────────────────────┐   validate key    ┌──────────────────────┐
-│    RTMP Server      │ ─────────────────▶│   NestJS Backend     │
-│  Node Media Server  │ ◀─────────────────│   REST API + WS      │
-│  + FFmpeg           │   webhook on live │                      │
-└─────────────────────┘                   │   PostgreSQL 16       │
-         │                                │   Redis 7            │
-         │  HLS segments                  └──────────┬───────────┘
-         ▼                                           │
-┌─────────────────────┐                             │
-│   React Frontend    │ ◀──── Socket.IO chat ────────┘
-│   Vite + hls.js     │ ◀──── REST API ─────────────
-│   Tailwind CSS 4    │
-└─────────────────────┘
-         │
-         ▼
-   [Browser / Mobile]
-```
-
-## Tech Stack
-
-| Layer | Technology | Version |
-|---|---|---|
-| Backend API | NestJS · Prisma ORM · Passport JWT | 11 · 7 · latest |
-| Database | PostgreSQL | 16 |
-| Cache | Redis | 7 |
-| Streaming ingest | Node Media Server + FFmpeg | 4.2 |
-| Video delivery | HLS (HTTP Live Streaming) | — |
-| Web frontend | React · Vite · Tailwind CSS | 19 · 6 · 4 |
-| Video playback | hls.js | 1.6 |
-| Real-time chat | Socket.IO | 4.8 |
-| Mobile (in progress) | React Native | 0.85 |
-| DevOps | Docker · Docker Compose | — |
-
-## Getting Started
-
-### Prerequisites
-
-- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** (includes Docker Compose v2)
-
-That's it. No Node.js, PostgreSQL, or Redis installation required on your machine.
-
-### 1. Clone the repository
+Requiere Docker y Docker Compose v2.
 
 ```bash
-git clone https://github.com/BernardoCamarena/StreamingServiceAppNWeb.git
-cd StreamingServiceAppNWeb
-```
-
-### 2. Configure environment variables
-
-```bash
+git clone https://github.com/SatlinkGT/SIGNAL-Live-Streaming.git
+cd SIGNAL-Live-Streaming
 cp backend/.env_example backend/.env
 ```
 
-Edit `backend/.env` and set a strong JWT secret:
-
-```env
-DATABASE_URL="postgresql://streaming_user:tu_password@postgres:5432/streaming_db"
-JWT_SECRET="your-long-random-secret-here"
-JWT_EXPIRES_IN="7d"
-PORT=3000
-```
-
-> Generate a secure JWT secret:
-> ```bash
-> # Linux / macOS / Git Bash
-> openssl rand -base64 64
->
-> # Node.js (any platform)
-> node -e "require('crypto').randomBytes(64).toString('base64')"
-> ```
-
-### 3. Start the entire stack
+En `backend/.env`, reemplaza `JWT_SECRET` por un valor aleatorio, por ejemplo con `openssl rand -hex 32`. La contraseña de `DATABASE_URL` debe coincidir con la de PostgreSQL en `docker-compose.yml`. La configuración incluida es para uso local.
 
 ```bash
-docker compose up --build
+docker compose up -d --build
+docker compose logs -f backend
 ```
 
-All five services start: `postgres`, `redis`, `backend`, `rtmp-server`, and `web`.  
-Wait until you see `NestJS application started` in the backend logs.
+La API aplica las migraciones al arrancar. Abre http://localhost:5173/register, crea una cuenta y entra en el panel (`/dashboard`) para ver la clave y la configuración de emisión.
 
-### 4. Run the database migration (first time only)
+## Emitir y ver un canal
 
-```bash
-docker compose exec backend npx prisma migrate deploy
-```
+- **RTMP (OBS o vMix)**. Selecciona RTMP en el panel y usa `rtmp://localhost/live` con tu clave personal.
+- **SRT (Astra u otro emisor compatible)**. Selecciona SRT en el panel. Usa el puerto 8890/UDP en modo Caller y el Stream ID `publish:live/CLAVE_PERSONAL`.
+- Envía vídeo H.264 y audio AAC. Abre `http://localhost:5173/canal/TU_CANAL` para reproducir el directo.
 
-### 5. Open the app
+## Chat del canal
 
-| Service | URL |
-|---|---|
-| **Web app** | http://localhost:5173 |
-| **Backend API** | http://localhost:3000 |
-| **HLS stream endpoint** | http://localhost:8000 |
+Socket.IO entrega los mensajes en tiempo real y PostgreSQL guarda el historial de cada canal. Al recargar o reconectar se recuperan los mensajes del día. A las **00:00 UTC** comienza un historial nuevo y se eliminan los mensajes del día anterior. Los avisos de inicio y fin de emisión se muestran en directo.
 
-## Streaming with OBS
+El cliente se conecta al mismo origen por `/socket.io/`. Emite `join_channel` con el slug y recibe `chat_history`. Para escribir, emite `send_message` con `{ channel, username, text }`. El servidor publica `new_message` con `{ id, username, text, timestamp }`.
 
-1. Go to **http://localhost:5173/register** and create an account
-2. Log in and navigate to **Dashboard** (`/dashboard`)
-3. Copy your personal **stream key**
-4. Open **OBS Studio → Settings → Stream**:
-   - Service: `Custom`
-   - Server: `rtmp://localhost/live`
-   - Stream Key: *(paste from dashboard)*
-5. Click **Start Streaming**
-6. Your channel is now live at `http://localhost:5173/canal/your-username`
+## Componentes y documentación
 
-## API Reference
+- `backend/` contiene la API NestJS, el chat, el esquema Prisma y las migraciones PostgreSQL.
+- `rtmp-server/` contiene MediaMTX y la integración Node.js que valida las entradas y sirve HLS.
+- `web/` contiene la aplicación React y el proxy Nginx para API, chat y HLS.
+- [Despliegue en producción](DEPLOYMENT.md) incluye HTTPS, variables de entorno, copias de seguridad y la configuración de RTMP y SRT.
+- La guía de emisión está disponible en [Markdown](guia-streaming.md) y [PDF](guia-streaming-instructiva.pdf).
 
-### Authentication
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/auth/register` | — | Register user + auto-create channel |
-| `POST` | `/auth/login` | — | Login, returns JWT |
-
-**Register / Login body:**
-```json
-{
-  "username": "streamer123",
-  "email": "user@example.com",
-  "password": "securepassword"
-}
-```
-
-### Channels
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/channels/live` | — | List all currently live channels |
-| `GET` | `/channels/:slug` | — | Get channel info and stream key |
-| `GET` | `/channels/me/stream-key` | JWT | Get your own stream key |
-| `POST` | `/channels/me/reset-key` | JWT | Regenerate stream key |
-
-### WebSocket Events
-
-Connect to the backend via Socket.IO on the same origin.
-
-```js
-// Client → Server
-socket.emit('join_channel', 'channel-slug')
-socket.emit('send_message', { channel: 'slug', text: 'Hello!', username: 'user123' })
-
-// Server → Client
-socket.on('new_message',    { id, username, text, timestamp })
-socket.on('channel_event',  { type: 'stream_status', isLive: boolean })
-```
-
-## Project Structure
-
-```
-.
-├── backend/               # NestJS API — auth, channels, streams, chat
-│   ├── src/
-│   │   ├── auth/          # JWT auth, Passport strategy, guards
-│   │   ├── channels/      # Channel CRUD and stream key management
-│   │   ├── streams/       # RTMP webhook handler and key validation
-│   │   └── chat/          # Socket.IO gateway
-│   ├── prisma/            # Schema + migrations
-│   └── Dockerfile
-│
-├── rtmp-server/           # RTMP ingest + FFmpeg HLS transcoding
-│   ├── src/
-│   │   └── index.js       # Node Media Server config + FFmpeg spawn
-│   └── Dockerfile
-│
-├── web/                   # React frontend
-│   ├── src/
-│   │   ├── pages/         # Home, Channel, Dashboard, Login, Register
-│   │   ├── components/    # VideoPlayer (hls.js), Chat (Socket.IO), Navbar
-│   │   ├── context/       # AuthContext (JWT decode, login/logout)
-│   │   └── api/           # Axios instance with JWT interceptor
-│   └── Dockerfile
-│
-├── mobile/                # React Native app (in progress)
-├── docker-compose.yml
-└── README.md
-```
-
-## Database Schema
-
-```
-User ──────── Channel
-│              │
-id (uuid)      id (uuid)
-username       slug          (URL-friendly, e.g. "streamer123")
-email          title
-password       isLive        (updated by RTMP webhook)
-               streamKey     (UUID, used with OBS)
-               userId (FK)
-```
-
-## Roadmap
-
-- [x] RTMP ingest with stream key authentication
-- [x] HLS transcoding with FFmpeg
-- [x] NestJS REST API + Prisma ORM
-- [x] JWT authentication
-- [x] Real-time chat with Socket.IO
-- [x] Responsive web frontend
-- [x] Full Docker Compose setup
-- [ ] React Native mobile app
-- [ ] Stream recording to disk
-- [ ] VOD (video on demand) support
-- [ ] Channel categories and tags
-- [ ] Follower / notification system
-
-## Port Reference
-
-| Port | Service | Protocol |
-|---|---|---|
-| `5173` | Web frontend (Vite) | HTTP |
-| `3000` | Backend API + Socket.IO | HTTP / WS |
-| `1935` | RTMP ingest | RTMP |
-| `8000` | HLS segments | HTTP |
-| `5432` | PostgreSQL | TCP |
-| `6379` | Redis | TCP |
-
-## License
+## Licencia
 
 [MIT](LICENSE)
