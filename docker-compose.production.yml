@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: streaming_db
+      POSTGRES_USER: streaming_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U streaming_user -d streaming_db]
+      interval: 5s
+      retries: 12
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:3000/channels/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      start_period: 40s
+      retries: 6
+  rtmp-server:
+    build: ./rtmp-server
+    restart: unless-stopped
+    ports:
+      - '1935:1935'
+      - '8890:8890/udp'
+    environment:
+      BACKEND_URL: http://backend:3000
+    volumes:
+      - hls_streams:/app/streams
+    depends_on:
+      backend:
+        condition: service_healthy
+  web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      rtmp-server:
+        condition: service_started
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  hls_streams:

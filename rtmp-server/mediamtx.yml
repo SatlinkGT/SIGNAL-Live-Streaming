@@ -1,0 +1,26 @@
+logLevel: warn
+readTimeout: 10s
+writeTimeout: 10s
+authMethod: http
+authHTTPAddress: http://127.0.0.1:8001/auth
+authHTTPExclude: []
+api: true
+apiAddress: 127.0.0.1:9997
+rtsp: false
+rtmp: true
+rtmpAddress: :1935
+srt: true
+srtAddress: :8890
+hls: true
+hlsAddress: 127.0.0.1:8888
+hlsAlwaysRemux: true
+hlsVariant: mpegts
+hlsSegmentCount: 5
+hlsSegmentDuration: 2s
+webrtc: false
+moq: false
+pathDefaults:
+  source: publisher
+  overridePublisher: false
+paths:
+  all_others:

@@ -1,0 +1,15 @@
+{
+  "name": "rtmp-server",
+  "version": "1.0.0",
+  "description": "RTMP/SRT ingest coordinator with MediaMTX and browser-compatible HLS",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {}
+}

@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production builds
+dist/
+build/
+.next/
+
+# Environment variables — NEVER commit these
+backend/.env
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Runtime HLS data (populated by Docker volume at runtime)
+rtmp-server/streams/live/**
+!rtmp-server/streams/live/.gitkeep
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+.nyc_output
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V7
+.Trashes
+eIcon
+Thumbs.db
+desktop.ini
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.orig
+
+# Claude Code internal files
+.claude/
+skills-lock.json
+web/CLAUDE.md
+web/.agents/
+
+# Local database backups
+/backups/

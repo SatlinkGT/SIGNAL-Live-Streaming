@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  channel   Channel?
+
+  @@map("users")
+}
+
+model Channel {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String?
+  logoUrl   String?
+  inputProtocol String @default("rtmp")
+  isLive    Boolean  @default(false)
+  streamKey String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  chatMessages ChatMessage[]
+
+  @@map("channels")
+}
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  channelSlug String
+  username    String
+  text        String
+  timestamp   DateTime @default(now())
+  channel     Channel  @relation(fields: [channelSlug], references: [slug], onDelete: Cascade)
+
+  @@index([channelSlug, timestamp, id])
+  @@index([timestamp])
+  @@map("chat_messages")
+}
